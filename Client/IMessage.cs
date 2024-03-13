@@ -3,7 +3,9 @@
 public interface IMessage
 {
     MessageType MessageType { get; set; }
-    ushort MessageId { get; set; }
+    static ushort MessageId { get; set; }
+
+    public byte[] ToBytes();
 }    
 public enum MessageType : byte
 {

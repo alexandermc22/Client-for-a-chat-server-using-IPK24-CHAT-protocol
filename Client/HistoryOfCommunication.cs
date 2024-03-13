@@ -7,7 +7,7 @@ public class HistoryOfCommunication
     public List<Msg> MsgList = new List<Msg>();
     public List<Reply> ReplyList = new List<Reply>();
     public List<Err> ErrList = new List<Err>();
-    public List<Confirm> ConfirmList = new List<Confirm>();
+    public Queue<Confirm> ConfirmList = new Queue<Confirm>();
     public List<Bye> ByeList = new List<Bye>();
 
     public string? Name = null;
