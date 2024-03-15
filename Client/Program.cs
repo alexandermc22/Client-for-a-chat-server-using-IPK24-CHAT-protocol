@@ -42,16 +42,13 @@ class Program
 
                 if (options.Protocol.Equals("tcp", StringComparison.OrdinalIgnoreCase))
                 {
-                    using (TcpClient tcpClient = new TcpClient())
+                    try
                     {
-                        try
-                        {
-                            tcpClient.Connect(ip, options.Port);
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.Error.WriteLine($"ERR: {ex.Message}");
-                        }
+                        await TcpCommunication.TcpProcessSocketCommunication(options, ip);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.Error.WriteLine($"ERR: {ex.Message}");
                     }
                 }
                 else
@@ -66,12 +63,10 @@ class Program
                             {
                                 Console.Error.WriteLine($"ERR: {ex.Message}");
                             }
-                            return;
                     }
                     else
                     {
                         Console.Error.WriteLine("ERR: Wrong protocol");
-                        return;
                     }
                 }
             })
@@ -84,17 +79,7 @@ class Program
         return 0;
     }
 
-    static async Task<int> TcpProcessSocketCommunication(
-/*TcpClient tcpClient, Options options, HistoryOfCommunication history*/)
-    {
-        while (true)
-        {
-            Console.WriteLine("ok\n");
-            await Task.Delay(10000);
-        }
 
-        return 0;
-    }
 
     
 }

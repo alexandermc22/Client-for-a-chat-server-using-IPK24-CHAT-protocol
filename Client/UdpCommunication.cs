@@ -28,22 +28,27 @@ public class UdpCommunication
 
     internal static async Task<int> UdpProcessSocketCommunication(Options options, IPAddress ip)
     {
+        IMessage.MessageId = 0;
+        UdpClient udpClientSend = new UdpClient();
+        IPEndPoint serverEP = new IPEndPoint(ip, options.Port);
+        IPEndPoint clientEP = new IPEndPoint(IPAddress.Any, 0);
+       
         try
         {
-            IMessage.MessageId = 0;
-            UdpClient udpClientSend = new UdpClient();
-            IPEndPoint serverEP = new IPEndPoint(ip, options.Port);
-            IPEndPoint clientEP = new IPEndPoint(IPAddress.Any, 0);
             udpClientSend.Client.Bind(clientEP);
             Task<int> receiveTask = ReceiveMessage(udpClientSend, serverEP, udpClientSend, options, ip, clientEP);
             Task<int> readTask = ReadMessage(options, udpClientSend, serverEP);
             Task result = await Task.WhenAny(readTask, receiveTask);
-            udpClientSend.Close();
+            
         }
         catch (Exception e)
         {
             Console.Error.WriteLine($"ERR: {e.Message}");
             throw;
+        }
+        finally
+        {
+            udpClientSend.Close();
         }
 
         return 0;
@@ -184,9 +189,9 @@ public class UdpCommunication
                 {
                     _mutexSate.ReleaseMutex();
                 }
-
+            
                 Console.WriteLine("End of communication");
-
+            
                 Environment.Exit(0);
             };
             string? userInput = Console.ReadLine();
@@ -311,7 +316,6 @@ public class UdpCommunication
                             _displayName = words[1];
                             continue;
                         default:
-                            //TODO: проверить состояние отправить сообщение на сервер, проверить 1 символо на / и вывести ошибку
                             if (words[0][0] == '/')
                             {
                                 Console.Error.WriteLine("ERR: Wrong input, repeat");
@@ -320,7 +324,7 @@ public class UdpCommunication
 
                             Msg msg = new Msg()
                             {
-                                MessageContents = userInput, //TODO: проверка на то что символы в utf8
+                                MessageContents = userInput, 
                                 DisplayName = _displayName
                             };
 
