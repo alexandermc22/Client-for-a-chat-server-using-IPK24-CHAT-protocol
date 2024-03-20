@@ -1,11 +1,60 @@
 ﻿namespace Client;
 using System.Text;
+using System.Text.RegularExpressions;
 public class Msg: IMessage
 {
     public MessageType MessageType { get; set; } = MessageType.MSG;
     //public static ushort MessageId { get; set; }
     public string DisplayName { get; set; } 
     public  string MessageContents { get; set; } 
+    
+    public static string ToTcpString(Msg msg)
+    {
+        Exception ex = new Exception("Wrong input data");
+        // Проверяем длину идентификатора канала и названия канала
+        if (msg.DisplayName.Length > 20 || msg.MessageContents.Length > 1400)
+        {
+            throw new ArgumentException("MessageContents and Display Name cannot exceed 20 characters in length.");
+        }
+        string patternDname = @"^[\x20-\x7E]*$";
+        if (!Regex.IsMatch(msg.DisplayName, patternDname))
+            throw ex;
+        string pattern = @"^[\x20-\x7E\s]*$";
+        if (!Regex.IsMatch(msg.MessageContents, pattern))
+            throw ex;
+        // Строим строку в формате "JOIN SP ID SP AS SP DNAME \r\n"
+        return string.Format("MSG FROM {0} IS {1}\r\n", msg.DisplayName, msg.MessageContents);
+    }
+    
+    
+    public static Msg FromStringTcp(string[] words)
+    {
+        Exception ex = new Exception("Wrong data from server");
+        if (words.Length != 5 )
+            throw ex;
+        if (words[1] != "FROM")
+            throw ex;
+        string patternDname = @"^[\x20-\x7E]*$";
+        if (!Regex.IsMatch(words[2], patternDname))
+            throw ex;
+        
+        if(words[3]!="IS")
+            throw ex;
+        if (words[4].Length > 1400)
+            throw ex;
+
+        string pattern = @"^[\x20-\x7E\s]*$";
+        if (!Regex.IsMatch(words[3], pattern))
+            throw ex;
+        
+        Msg msg = new Msg()
+        {
+            DisplayName = words[2],
+            MessageContents = words[4]
+        };
+        return msg;
+    }
+    
     
     public byte[] ToBytes()
     {

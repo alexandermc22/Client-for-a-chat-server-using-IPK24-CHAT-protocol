@@ -1,11 +1,61 @@
 ﻿namespace Client;
 using System.Text;
+using System.Text.RegularExpressions;
 public class Join : IMessage
 {
     public MessageType MessageType { get; set; } = MessageType.JOIN;
     //public static ushort MessageId { get; set; }
     public required string ChannelId  { get; set; }
     public  string DisplayName    { get; set; } 
+    
+    
+    public static string ToTcpString(Join join)
+    {
+        Exception ex = new Exception("Wrong input data");
+        // Проверяем длину идентификатора канала и названия канала
+        if (join.ChannelId.Length > 20 || join.DisplayName.Length > 20)
+        {
+            throw new ArgumentException("Channel ID and Display Name cannot exceed 20 characters in length.");
+        }
+        string patternId = @"^[a-zA-Z0-9\-]+$";
+        if (!Regex.IsMatch(join.ChannelId, patternId))
+            throw ex;
+        string patternDname = @"^[\x20-\x7E]*$";
+        if (!Regex.IsMatch(join.DisplayName, patternDname))
+            throw ex;
+        // Строим строку в формате "JOIN SP ID SP AS SP DNAME \r\n"
+        return string.Format("JOIN {0} AS {1}\r\n", join.ChannelId, join.DisplayName);
+    }
+    
+    public static Join FromStringTcp(string[] words)
+    {
+        Exception ex = new Exception("Wrong data from server");
+        if (words.Length != 4 )
+            throw ex;
+        if (words[1].Length > 20)
+            throw ex;
+        string patternId = @"^[a-zA-Z0-9\-]+$";
+        if (!Regex.IsMatch(words[1], patternId))
+            throw ex;
+        
+        
+        if(words[2]!="AS")
+            throw ex;
+        
+        if (words[3].Length > 20)
+            throw ex;
+        
+        string patternDname = @"^[\x20-\x7E]*$";
+        if (!Regex.IsMatch(words[3], patternDname))
+            throw ex;
+        
+        Join join = new Join()
+        {
+            DisplayName = words[3],
+            ChannelId = words[1]
+        };
+        return join;
+    }
     
     public byte[] ToBytes()
     {

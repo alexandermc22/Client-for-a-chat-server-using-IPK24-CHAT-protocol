@@ -1,12 +1,45 @@
-﻿namespace Client;
+﻿using System.Data;
+using System.Text.RegularExpressions;
+namespace Client;
 using System.Text;
 public class Reply : IMessage
 {
     public MessageType MessageType { get; set; } = MessageType.REPLY;
-    public  ushort MessageId { get; set; }
+    //public  ushort MessageId { get; set; }
     public bool Result { get; set; }
     public ushort RefMessageId { get; set; }
     public  string MessageContent { get; set; }
+
+    public static Reply FromStringTcp(string[] words)
+    {
+        Exception ex = new Exception("Wrong data from server");
+        if (words.Length != 4 )
+            throw ex;
+        bool result;
+        if (words[1] == "OK")
+            result = true;
+        else if (words[1] == "NOK")
+            result = false;
+        else throw ex;
+        
+        if(words[2]!="IS")
+            throw ex;
+        if (words[3].Length > 1400)
+            throw ex;
+
+        string pattern = @"^[\x20-\x7E\s]*$";
+        if (!Regex.IsMatch(words[3], pattern))
+            throw ex;
+        
+        Reply reply = new Reply()
+        {
+            Result = result,
+            MessageContent = words[3]
+        };
+        return reply;
+    }
+    
+    
     
     public byte[] ToBytes()
     {
@@ -18,7 +51,7 @@ public class Reply : IMessage
         // Используем приведение enum к byte для преобразования MessageType в байт
         result[0] = (byte)MessageType;
 
-        byte[] messageIdBytes = BitConverter.GetBytes(MessageId);
+        byte[] messageIdBytes = BitConverter.GetBytes(IMessage.MessageId);
         Array.Copy(messageIdBytes, 0, result, 1, 2);
 
         result[3] = (byte)(Result ? 1 : 0);
@@ -42,7 +75,7 @@ public class Reply : IMessage
         }
 
         MessageType messageType = (MessageType)data[0];
-        ushort messageId = BitConverter.ToUInt16(data, 1);
+        //ushort messageId = BitConverter.ToUInt16(data, 1);
         bool result = data[3] != 0;
         ushort refMessageId = BitConverter.ToUInt16(data, 4);
 
@@ -58,7 +91,6 @@ public class Reply : IMessage
         return new Reply
         {
             MessageType = messageType,
-            MessageId = messageId,
             Result = result,
             RefMessageId = refMessageId,
             MessageContent = messageContent

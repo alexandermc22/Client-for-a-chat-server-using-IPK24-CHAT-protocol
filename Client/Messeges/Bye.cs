@@ -5,6 +5,7 @@ public class Bye: IMessage
     public MessageType MessageType { get; set; } = MessageType.BYE;
     //public static ushort MessageId { get; set; }
     
+    
     public byte[] ToBytes()
     {
         // Создаем массив для объединения всех байтов

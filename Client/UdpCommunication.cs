@@ -25,7 +25,7 @@ public class UdpCommunication
     private static Mutex mutexConfirm = new Mutex();
     private static Mutex mutexReply = new Mutex();
     private static string? _displayName;
-
+    
     internal static async Task<int> UdpProcessSocketCommunication(Options options, IPAddress ip)
     {
         IMessage.MessageId = 0;
@@ -36,10 +36,9 @@ public class UdpCommunication
         try
         {
             udpClientSend.Client.Bind(clientEP);
-            Task<int> receiveTask = ReceiveMessage(udpClientSend, serverEP, udpClientSend, options, ip, clientEP);
+            Task<int> receiveTask = ReceiveMessage(udpClientSend, serverEP, options, ip, clientEP);
             Task<int> readTask = ReadMessage(options, udpClientSend, serverEP);
             Task result = await Task.WhenAny(readTask, receiveTask);
-            
         }
         catch (Exception e)
         {
@@ -53,9 +52,8 @@ public class UdpCommunication
 
         return 0;
     }
-
-
-    static async Task<int> ReceiveMessage(UdpClient udpClient, IPEndPoint serverEP, UdpClient sender, Options options,
+//00d3554d-30c3-4a47-a37e-7b9032bd27e4
+    static async Task<int> ReceiveMessage(UdpClient udpClient, IPEndPoint serverEP, Options options,
         IPAddress ip, IPEndPoint clientEP)
     {
         try
@@ -63,6 +61,7 @@ public class UdpCommunication
             while (true)
             {
                 UdpReceiveResult receiveResult = await udpClient.ReceiveAsync();
+                
                 _mutexSate.WaitOne();
                 switch (_state)
                 {
@@ -73,13 +72,15 @@ public class UdpCommunication
                         _mutexSate.ReleaseMutex();
                         if (receiveResult.RemoteEndPoint.Port != serverEP.Port)
                         {
-                            serverEP.Port = receiveResult.RemoteEndPoint.Port;
+                           serverEP.Port = receiveResult.RemoteEndPoint.Port;
                         }
 
                         switch (receiveResult.Buffer[0])
                         {
                             case (byte)MessageType.CONFIRM:
+                                mutexConfirm.WaitOne();
                                 ConfirmList.Enqueue(Confirm.FromBytes(receiveResult.Buffer));
+                                mutexConfirm.ReleaseMutex();
                                 break;
                             case (byte)MessageType.REPLY:
                                 Task a = SendConfirm(receiveResult.Buffer, udpClient, serverEP);
@@ -88,17 +89,21 @@ public class UdpCommunication
                                     Console.Error.WriteLine($"Success: {reply.MessageContent}");
                                 else
                                     Console.Error.WriteLine($"Failure: {reply.MessageContent}");
+                                mutexReply.WaitOne();
                                 ReplyList.Enqueue(reply);
+                                mutexReply.ReleaseMutex();
                                 break;
                             case (byte)MessageType.ERR:
                                 a = SendConfirm(receiveResult.Buffer, udpClient, serverEP);
                                 Err err = Err.FromBytes(receiveResult.Buffer);
                                 Console.Error.WriteLine($"ERR FROM {err.DisplayName}: {err.MessageContents}");
 
-                                Task close = SendBye(sender, serverEP, options);
+                                Task close = SendBye(udpClient, serverEP, options);
                                 Task<int> readConfirm =
-                                    ReceiveMessage(udpClient, serverEP, sender, options, ip, clientEP);
+                                    ReceiveMessage(udpClient, serverEP, options, ip, clientEP);
                                 await close;
+                                udpClient.Close();
+                                Environment.Exit(0);
                                 return 0;
                         }
 
@@ -107,10 +112,13 @@ public class UdpCommunication
 
                     case State.OPEN:
                         _mutexSate.ReleaseMutex();
+                        //receiveResult.Buffer[0] = 0x05;
                         switch (receiveResult.Buffer[0])
                         {
                             case (byte)MessageType.CONFIRM:
+                                mutexConfirm.WaitOne();
                                 ConfirmList.Enqueue(Confirm.FromBytes(receiveResult.Buffer));
+                                mutexConfirm.ReleaseMutex();
                                 break;
                             case (byte)MessageType.REPLY:
                                 Task a = SendConfirm(receiveResult.Buffer, udpClient, serverEP);
@@ -119,17 +127,21 @@ public class UdpCommunication
                                     Console.Error.WriteLine($"Success: {reply.MessageContent}\n");
                                 else
                                     Console.Error.WriteLine($"Failure: {reply.MessageContent}\n");
+                                mutexReply.WaitOne();
                                 ReplyList.Enqueue(Reply.FromBytes(receiveResult.Buffer));
+                                mutexReply.ReleaseMutex();
                                 break;
                             case (byte)MessageType.ERR:
                                 a = SendConfirm(receiveResult.Buffer, udpClient, serverEP);
                                 Err err = Err.FromBytes(receiveResult.Buffer);
                                 Console.Error.WriteLine($"ERR FROM {err.DisplayName}: {err.MessageContents}");
 
-                                Task close = SendBye(sender, serverEP, options);
+                                Task close = SendBye(udpClient, serverEP, options);
                                 Task<int> readConfirm =
-                                    ReceiveMessage(udpClient, serverEP, sender, options, ip, clientEP);
+                                    ReceiveMessage(udpClient, serverEP, options, ip, clientEP);
                                 await close;
+                                udpClient.Close();
+                                Environment.Exit(0);
                                 return 0;
                             case (byte)MessageType.MSG:
                                 a = SendConfirm(receiveResult.Buffer, udpClient, serverEP);
@@ -138,20 +150,25 @@ public class UdpCommunication
                                 break;
                             case (byte)MessageType.BYE:
                                 a = SendConfirm(receiveResult.Buffer, udpClient, serverEP);
+                                udpClient.Close();
+                                Environment.Exit(0);
                                 return 0;
                             default:
+                                Console.WriteLine("ERR: wrong data from server");
                                 Err sendErr = new Err();
-                                sendErr.MessageContents = "error string";
+                                sendErr.MessageContents = "wrong data from server";
                                 sendErr.DisplayName = _displayName;
                                 _mutexSate.WaitOne();
                                 _state = State.ERROR;
                                 _mutexSate.ReleaseMutex();
-                                Task sendError = SendMessageAsync(sendErr.ToBytes(), sender, serverEP, options);
+                                Task sendError = SendMessageAsync(sendErr.ToBytes(), udpClient, serverEP, options);
                                 Task<int> readConfirm2 =
-                                    ReceiveMessage(udpClient, serverEP, sender, options, ip, clientEP);
+                                    ReceiveMessage(udpClient, serverEP, options, ip, clientEP);
                                 await sendError;
-                                Task close1 = SendBye(sender, serverEP, options);
+                                Task close1 = SendBye(udpClient, serverEP, options);
                                 await close1;
+                                udpClient.Close();
+                                Environment.Exit(0);
                                 return 0;
                         }
 
@@ -160,7 +177,11 @@ public class UdpCommunication
                     case State.END:
                         _mutexSate.ReleaseMutex();
                         if (receiveResult.Buffer[0] == (byte)MessageType.CONFIRM)
+                        {
+                            mutexConfirm.WaitOne();
                             ConfirmList.Enqueue(Confirm.FromBytes(receiveResult.Buffer));
+                        mutexConfirm.ReleaseMutex();
+                        }
                         break;
                     
                 }
@@ -172,28 +193,28 @@ public class UdpCommunication
             throw;
         }
     }
-
+    
     static async Task<int> ReadMessage(Options options, UdpClient udpClient, IPEndPoint localEndPoint)
     {
+        Console.CancelKeyPress += async (sender, e) =>
+        {
+            _mutexSate.WaitOne();
+            if (_state != State.START)
+            {
+                _mutexSate.ReleaseMutex();
+                await SendBye(udpClient, localEndPoint, options);
+            }
+            else
+            {
+                _mutexSate.ReleaseMutex();
+            }
+            udpClient.Close();
+            
+            Environment.Exit(0);
+        };
         while (true)
         {
-            Console.CancelKeyPress += async (sender, e) =>
-            {
-                _mutexSate.WaitOne();
-                if (_state != State.START)
-                {
-                    _mutexSate.ReleaseMutex();
-                    await SendBye(udpClient, localEndPoint, options);
-                }
-                else
-                {
-                    _mutexSate.ReleaseMutex();
-                }
             
-                Console.WriteLine("End of communication");
-            
-                Environment.Exit(0);
-            };
             string? userInput = Console.ReadLine();
             if (userInput == null)
             {
@@ -402,7 +423,7 @@ public class UdpCommunication
             {
                 Reply reply;
                 reply = ReplyList.Dequeue();
-                if (reply.RefMessageId == messageId - 1)
+                if (reply.RefMessageId == (IMessage.MessageId - 1))
                 {
                     mutexReply.ReleaseMutex();
                     if (reply.Result)
@@ -412,7 +433,7 @@ public class UdpCommunication
                 }
             }
 
-            mutexConfirm.ReleaseMutex();
+            mutexReply.ReleaseMutex();
         }
 
         Console.Error.WriteLine("ERR: no reply");
