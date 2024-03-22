@@ -1,5 +1,5 @@
 ﻿namespace Client;
-
+using System.Text.RegularExpressions;
 using System.Net;
 using System.Net.Sockets;
 using System;
@@ -22,12 +22,12 @@ public class TcpCommunication
     private static Mutex _mutexReply = new Mutex();
     private static string? _displayName;
 
-    internal static async Task TcpProcessSocketCommunication(Options options, IPAddress ip)
+    internal static async Task TcpProcessSocketCommunication(Options options)
     {
         TcpClient tcpClient = new TcpClient();
         try
         {
-            await tcpClient.ConnectAsync(ip, options.Port);
+            tcpClient.Connect(options.Ip, options.Port);
             Task receiveTask = ReceiveMessages(tcpClient);
             Task sendMessage = SendMessages(tcpClient);
 
@@ -35,7 +35,8 @@ public class TcpCommunication
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"ERR: {ex.Message}");
+            Console.WriteLine("err");
+            Console.Error.WriteLine($"ERR: {ex.Message}");
         }
         finally
         {
@@ -43,6 +44,22 @@ public class TcpCommunication
         }
     }
 
+    static async Task SendBye(TcpClient tcpClient)
+    {
+        byte[] data = Encoding.UTF8.GetBytes("BYE\r\n");
+        await tcpClient.GetStream().WriteAsync(data, 0, data.Length);
+    }
+    
+    static async Task SendErr(TcpClient tcpClient)
+    {
+        Err err = new Err()
+        {
+            DisplayName = _displayName,
+            MessageContents = "Wrong data from server"
+        };
+        byte[] data = Encoding.UTF8.GetBytes(Err.ToTcpString(err));
+        await tcpClient.GetStream().WriteAsync(data, 0, data.Length);
+    }
     static async Task SendMessages(TcpClient tcpClient)
     {
         NetworkStream stream = tcpClient.GetStream();
@@ -52,7 +69,7 @@ public class TcpCommunication
             if (_state != State.START)
             {
                 _mutexSate.ReleaseMutex();
-                //TODO: SEND BYE             
+                await SendBye(tcpClient);
             }
             else
             {
@@ -67,7 +84,19 @@ public class TcpCommunication
             string? userInput = Console.ReadLine();
             if (userInput == null)
             {
-                continue;
+                _mutexSate.WaitOne();
+                if (_state != State.START)
+                {
+                    _mutexSate.ReleaseMutex();
+                    await SendBye(tcpClient);
+                }
+                else
+                {
+                    _mutexSate.ReleaseMutex();
+                }
+                tcpClient.Close();
+                Environment.Exit(0);
+                return;
             }
 
             if (string.IsNullOrWhiteSpace(userInput))
@@ -89,11 +118,12 @@ public class TcpCommunication
                 Options.PrintHelp();
                 continue;
             }
-
+            byte[] data;
             _mutexSate.WaitOne();
             switch (_state)
             {
                 case State.START:
+                case State.AUTH:
                     _mutexSate.ReleaseMutex();
                     if (words[0] == "/auth")
                     {
@@ -113,45 +143,17 @@ public class TcpCommunication
                         _mutexSate.WaitOne();
                         _state = State.AUTH;
                         _mutexSate.ReleaseMutex();
-                        byte[] data;
                         try
                         {
                             data = Encoding.UTF8.GetBytes(auth.ToTcpString());
+                            await SendWithReply(data, tcpClient);
+                            continue;
                         }
                         catch (Exception e)
                         {
                             Console.WriteLine($"ERR: {e}");
                             continue;
                         }
-                        await stream.WriteAsync(data, 0, data.Length);
-                        bool flag = false;
-                        for (int i = 0; i < 10; i++)
-                        {
-                            if(_reply==-1)
-                                await Task.Delay(50);
-                            else
-                            {
-                                if (_reply == 1)
-                                {
-                                    _mutexSate.WaitOne();
-                                    _state = State.OPEN;
-                                    _mutexSate.ReleaseMutex();
-                                }
-                                _mutexReply.WaitOne();
-                                _reply = -1;
-                                _mutexReply.ReleaseMutex();
-                                flag = true;
-                                break;
-                            }
-                        }
-
-                        if (!flag)
-                        {
-                            Console.Error.WriteLine("ERR: no response");
-                            tcpClient.Close();
-                            Environment.Exit(0);
-                        }
-                        continue;
                     }
                     else
                     {
@@ -159,6 +161,7 @@ public class TcpCommunication
                         continue;
                     }
                 case State.OPEN:
+                    _mutexSate.ReleaseMutex();
                     switch (words[0])
                     {
                         case "/join":
@@ -173,6 +176,17 @@ public class TcpCommunication
                                 ChannelId = words[1],
                                 DisplayName = _displayName
                             };
+                            try
+                            {
+                                data = Encoding.UTF8.GetBytes(Join.ToTcpString(join));
+                                await SendWithReply(data, tcpClient);
+                                continue;
+                            }
+                            catch (Exception e)
+                            {
+                                Console.WriteLine($"ERR: {e}");
+                                continue;
+                            }
                             
                             break;
                         case "/rename":
@@ -181,7 +195,11 @@ public class TcpCommunication
                                 Console.Error.WriteLine("ERR: Wrong input, repeat");
                                 continue;
                             }
-                            _displayName = words[1];
+                            string patternDname = @"^[\x20-\x7E]*$";
+                            if (Regex.IsMatch(words[1], patternDname))
+                                _displayName = words[1];
+                            else
+                                Console.Error.WriteLine("ERR: Wrong input, repeat");
                             continue;
                         default:
                             if (words[0][0] == '/')
@@ -194,6 +212,17 @@ public class TcpCommunication
                                 MessageContents = userInput, 
                                 DisplayName = _displayName
                             };
+                            try
+                            {
+                                data = Encoding.UTF8.GetBytes(Msg.ToTcpString(msg));
+                                await stream.WriteAsync(data, 0, data.Length);
+                                continue;
+                            }
+                            catch (Exception e)
+                            {
+                                Console.WriteLine($"ERR: {e}");
+                                continue;
+                            }
                             break;
                     }
             }   
@@ -203,13 +232,14 @@ public class TcpCommunication
         }
     }
 
-    static async Task<int> SendWithReply(byte[] data,TcpClient tcpClient)
+    static async Task SendWithReply(byte[] data,TcpClient tcpClient)
     {
         await tcpClient.GetStream().WriteAsync(data, 0, data.Length);
         for (int i = 0; i < 10; i++)
         {
             if(_reply==-1)
-                await Task.Delay(50);
+                Thread.Sleep(50);
+                //await Task.Delay(50);
             else
             {
                 if (_reply == 1)
@@ -221,13 +251,12 @@ public class TcpCommunication
                 _mutexReply.WaitOne();
                 _reply = -1;
                 _mutexReply.ReleaseMutex();
-                return 0;
+                return;
             }
         }
         Console.Error.WriteLine("ERR: no response");
         tcpClient.Close();
         Environment.Exit(0);
-        return 2;
     }
     static async Task ReceiveMessages(TcpClient tcpClient)
     {
@@ -244,10 +273,20 @@ public class TcpCommunication
                 return;
             }
             string receivedMessage = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+            
+            if (receivedMessage == "")
+            {
+                await SendBye(tcpClient);
+                tcpClient.Close();
+                Environment.Exit(0);
+            }
+                
             string[] messages = receivedMessage.Split("\r\n");
 
             foreach (string message in messages)
             {
+                if(message=="")
+                    continue;
                 string firstPart;
                 string secondPart;
                 string[] words;
@@ -256,7 +295,7 @@ public class TcpCommunication
                 if (index != -1)
                 {
                     // Получаем подстроку до первого вхождения "IS"
-                    firstPart = message.Substring(0, index + 3);
+                    firstPart = message.Substring(0, index + 2);
                     // Получаем подстроку после первого вхождения "IS"
                     secondPart = message.Substring(index + 3);
                     words = firstPart.Split(' ');
@@ -298,8 +337,9 @@ public class TcpCommunication
                                 }
                                 catch (Exception e)
                                 {
-                                    Console.WriteLine($"$ERR: {e}");
-                                    //TODO: SEND BYE
+                                    Console.WriteLine($"ERR: {e}");
+                                    await SendErr(tcpClient);
+                                    await SendBye(tcpClient);
                                     tcpClient.Close();
                                     Environment.Exit(0);
                                     return;
@@ -309,20 +349,46 @@ public class TcpCommunication
                                 Environment.Exit(0);
                                 return;
                             case "ERR":
-                                Err err = Err.FromStringTcp(words);
-                                Console.Error.WriteLine($"ERR FROM {err.DisplayName}: {err.MessageContents}");
-                                tcpClient.Close();
-                                Environment.Exit(0);
+                                try
+                                {
+                                    Err err = Err.FromStringTcp(words);
+                                    Console.Error.WriteLine($"ERR FROM {err.DisplayName}: {err.MessageContents}");
+                                }
+                                catch (Exception e)
+                                {
+                                    Console.WriteLine($"$ERR: {e}");
+                                    await SendErr(tcpClient);
+                                }
+                                finally
+                                {
+                                    await SendBye(tcpClient);
+                                    tcpClient.Close();
+                                    Environment.Exit(0);
+                                }
                                 return;
                         }
                         break;
                     case State.OPEN:
+                        _mutexSate.ReleaseMutex();
                         switch (words[0])
                         {
                             case "MSG":
-                                Msg msg = Msg.FromStringTcp(words);
-                                Console.WriteLine($"{msg.DisplayName}: {msg.MessageContents}\n");
-                                break;
+                                try
+                                {
+                                    Msg msg = Msg.FromStringTcp(words);
+                                    Console.WriteLine($"{msg.DisplayName}: {msg.MessageContents}\n");
+                                    break;
+                                }
+                                catch (Exception e)
+                                {
+                                    Console.WriteLine($"$ERR: {e}");
+                                    await SendErr(tcpClient);
+                                    await SendBye(tcpClient);
+                                    tcpClient.Close();
+                                    Environment.Exit(0);
+                                    return;
+                                }
+                                
                             case "REPLY":
                                 try
                                 {
@@ -344,7 +410,8 @@ public class TcpCommunication
                                 catch (Exception e)
                                 {
                                     Console.WriteLine($"$ERR: {e}");
-                                    //TODO: SEND BYE
+                                    await SendErr(tcpClient);
+                                    await SendBye(tcpClient);
                                     tcpClient.Close();
                                     Environment.Exit(0);
                                     return;
@@ -354,14 +421,28 @@ public class TcpCommunication
                                 Environment.Exit(0);
                                 return;
                             case "ERR":
-                                Err err = Err.FromStringTcp(words);
-                                Console.Error.WriteLine($"ERR FROM {err.DisplayName}: {err.MessageContents}");
-                                tcpClient.Close();
-                                Environment.Exit(0);
+                                try
+                                {
+                                    Err err = Err.FromStringTcp(words);
+                                    Console.Error.WriteLine($"ERR FROM {err.DisplayName}: {err.MessageContents}");
+                                }
+                                catch (Exception e)
+                                {
+                                    Console.WriteLine($"$ERR: {e}");
+                                    await SendErr(tcpClient);
+                                }
+                                finally
+                                {
+                                    await SendBye(tcpClient);
+                                    tcpClient.Close();
+                                    Environment.Exit(0);
+                                }
                                 return;
                             default:
+                                Console.WriteLine(words[0]);
                                 Console.WriteLine("ERR: wrong data from server");
-                                // TODO: send err, send bye
+                                await SendErr(tcpClient);
+                                await SendBye(tcpClient);
                                 tcpClient.Close();
                                 Environment.Exit(0);
                                 return;

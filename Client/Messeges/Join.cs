@@ -34,7 +34,7 @@ public class Join : IMessage
             throw ex;
         if (words[1].Length > 20)
             throw ex;
-        string patternId = @"^[a-zA-Z0-9\-]+$";
+        string patternId = @"^[a-zA-Z0-9\-.]+$";
         if (!Regex.IsMatch(words[1], patternId))
             throw ex;
         

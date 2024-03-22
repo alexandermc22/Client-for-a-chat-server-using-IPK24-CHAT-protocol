@@ -44,7 +44,7 @@ class Program
                 {
                     try
                     {
-                        await TcpCommunication.TcpProcessSocketCommunication(options, ip);
+                        await TcpCommunication.TcpProcessSocketCommunication(options);
                     }
                     catch (Exception ex)
                     {
