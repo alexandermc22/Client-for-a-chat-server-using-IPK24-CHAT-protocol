@@ -45,6 +45,7 @@ public class TcpCommunication
 
     static async Task SendMessages(TcpClient tcpClient)
     {
+        NetworkStream stream = tcpClient.GetStream();
         Console.CancelKeyPress += async (sender, e) =>
         {
             _mutexSate.WaitOne();
@@ -89,13 +90,145 @@ public class TcpCommunication
                 continue;
             }
 
+            _mutexSate.WaitOne();
+            switch (_state)
+            {
+                case State.START:
+                    _mutexSate.ReleaseMutex();
+                    if (words[0] == "/auth")
+                    {
+                        if (words.Length != 4)
+                        {
+                            Console.Error.WriteLine("ERR: Wrong input, repeat");
+                            continue;
+                        }
+
+                        _displayName = words[3];
+                        Auth auth = new Auth()
+                        {
+                            Username = words[1],
+                            DisplayName = words[3],
+                            Secret = words[2]
+                        };
+                        _mutexSate.WaitOne();
+                        _state = State.AUTH;
+                        _mutexSate.ReleaseMutex();
+                        byte[] data;
+                        try
+                        {
+                            data = Encoding.UTF8.GetBytes(auth.ToTcpString());
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine($"ERR: {e}");
+                            continue;
+                        }
+                        await stream.WriteAsync(data, 0, data.Length);
+                        bool flag = false;
+                        for (int i = 0; i < 10; i++)
+                        {
+                            if(_reply==-1)
+                                await Task.Delay(50);
+                            else
+                            {
+                                if (_reply == 1)
+                                {
+                                    _mutexSate.WaitOne();
+                                    _state = State.OPEN;
+                                    _mutexSate.ReleaseMutex();
+                                }
+                                _mutexReply.WaitOne();
+                                _reply = -1;
+                                _mutexReply.ReleaseMutex();
+                                flag = true;
+                                break;
+                            }
+                        }
+
+                        if (!flag)
+                        {
+                            Console.Error.WriteLine("ERR: no response");
+                            tcpClient.Close();
+                            Environment.Exit(0);
+                        }
+                        continue;
+                    }
+                    else
+                    {
+                        Console.Error.WriteLine("ERR: Wrong input, repeat");
+                        continue;
+                    }
+                case State.OPEN:
+                    switch (words[0])
+                    {
+                        case "/join":
+                            if (words.Length != 2)
+                            {
+                                Console.Error.WriteLine("ERR: Wrong input, repeat");
+                                continue;
+                            }
+
+                            Join join = new Join()
+                            {
+                                ChannelId = words[1],
+                                DisplayName = _displayName
+                            };
+                            
+                            break;
+                        case "/rename":
+                            if (words.Length != 2)
+                            {
+                                Console.Error.WriteLine("ERR: Wrong input, repeat");
+                                continue;
+                            }
+                            _displayName = words[1];
+                            continue;
+                        default:
+                            if (words[0][0] == '/')
+                            {
+                                Console.Error.WriteLine("ERR: Wrong input, repeat");
+                                continue;
+                            }
+                            Msg msg = new Msg()
+                            {
+                                MessageContents = userInput, 
+                                DisplayName = _displayName
+                            };
+                            break;
+                    }
+            }   
             // Отправляем сообщение серверу
             //byte[] data = Encoding.UTF8.GetBytes(message);
             //await stream.WriteAsync(data, 0, data.Length);
-            Console.WriteLine("Сообщение отправлено серверу.");
         }
     }
 
+    static async Task<int> SendWithReply(byte[] data,TcpClient tcpClient)
+    {
+        await tcpClient.GetStream().WriteAsync(data, 0, data.Length);
+        for (int i = 0; i < 10; i++)
+        {
+            if(_reply==-1)
+                await Task.Delay(50);
+            else
+            {
+                if (_reply == 1)
+                {
+                    _mutexSate.WaitOne();
+                    _state = State.OPEN;
+                    _mutexSate.ReleaseMutex();
+                }
+                _mutexReply.WaitOne();
+                _reply = -1;
+                _mutexReply.ReleaseMutex();
+                return 0;
+            }
+        }
+        Console.Error.WriteLine("ERR: no response");
+        tcpClient.Close();
+        Environment.Exit(0);
+        return 2;
+    }
     static async Task ReceiveMessages(TcpClient tcpClient)
     {
         NetworkStream stream = tcpClient.GetStream();
@@ -105,7 +238,11 @@ public class TcpCommunication
             // Принимаем ответ от сервера
             int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
             if (bytesRead == 0)
+            {
+                tcpClient.Close();
+                Environment.Exit(0);
                 return;
+            }
             string receivedMessage = Encoding.UTF8.GetString(buffer, 0, bytesRead);
             string[] messages = receivedMessage.Split("\r\n");
 
@@ -142,16 +279,21 @@ public class TcpCommunication
                         switch (words[0])
                         {
                             case "REPLY":
-                                _mutexReply.WaitOne();
-                                _reply = 1;
-                                _mutexReply.ReleaseMutex();
                                 try
                                 {
                                     Reply reply = Reply.FromStringTcp(words);
+                                    _mutexReply.WaitOne();
                                     if (reply.Result)
+                                    {
+                                        _reply = 1;
                                         Console.Error.WriteLine($"Success: {reply.MessageContent}");
+                                    }
                                     else
+                                    {
+                                        _reply = -1;
                                         Console.Error.WriteLine($"Failure: {reply.MessageContent}");
+                                    }
+                                    _mutexReply.ReleaseMutex();
                                     break;
                                 }
                                 catch (Exception e)
@@ -182,16 +324,21 @@ public class TcpCommunication
                                 Console.WriteLine($"{msg.DisplayName}: {msg.MessageContents}\n");
                                 break;
                             case "REPLY":
-                                _mutexReply.WaitOne();
-                                _reply = 1;
-                                _mutexReply.ReleaseMutex();
                                 try
                                 {
                                     Reply reply = Reply.FromStringTcp(words);
+                                    _mutexReply.WaitOne();
                                     if (reply.Result)
+                                    {
+                                        _reply = 1;
                                         Console.Error.WriteLine($"Success: {reply.MessageContent}");
+                                    }
                                     else
+                                    {
+                                        _reply = -1;
                                         Console.Error.WriteLine($"Failure: {reply.MessageContent}");
+                                    }
+                                    _mutexReply.ReleaseMutex();
                                     break;
                                 }
                                 catch (Exception e)
