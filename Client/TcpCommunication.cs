@@ -356,7 +356,7 @@ public class TcpCommunication
                                 }
                                 catch (Exception e)
                                 {
-                                    Console.WriteLine($"$ERR: {e}");
+                                    Console.WriteLine($"ERR: {e}");
                                     await SendErr(tcpClient);
                                 }
                                 finally
@@ -381,7 +381,7 @@ public class TcpCommunication
                                 }
                                 catch (Exception e)
                                 {
-                                    Console.WriteLine($"$ERR: {e}");
+                                    Console.WriteLine($"ERR: {e}");
                                     await SendErr(tcpClient);
                                     await SendBye(tcpClient);
                                     tcpClient.Close();
@@ -409,7 +409,7 @@ public class TcpCommunication
                                 }
                                 catch (Exception e)
                                 {
-                                    Console.WriteLine($"$ERR: {e}");
+                                    Console.WriteLine($"ERR: {e}");
                                     await SendErr(tcpClient);
                                     await SendBye(tcpClient);
                                     tcpClient.Close();
@@ -428,7 +428,7 @@ public class TcpCommunication
                                 }
                                 catch (Exception e)
                                 {
-                                    Console.WriteLine($"$ERR: {e}");
+                                    Console.WriteLine($"ERR: {e}");
                                     await SendErr(tcpClient);
                                 }
                                 finally
