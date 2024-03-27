@@ -16,7 +16,7 @@ public class Join : IMessage
         {
             throw new ArgumentException("Channel ID and Display Name cannot exceed 20 characters in length.");
         }
-        string patternId = @"^[a-zA-Z0-9\-]+$";
+        string patternId = @"^[a-zA-Z0-9\-.]+$";
         if (!Regex.IsMatch(join.ChannelId, patternId))
             throw ex;
         string patternDname = @"^[\x20-\x7E]*$";

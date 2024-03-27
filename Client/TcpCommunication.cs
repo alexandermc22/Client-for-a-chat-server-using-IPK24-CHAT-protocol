@@ -236,10 +236,11 @@ public class TcpCommunication
     static async Task SendWithReply(byte[] data,TcpClient tcpClient)
     {
         await tcpClient.GetStream().WriteAsync(data, 0, data.Length);
-        for (int i = 0; i < 10; i++)
+        // if server is busy or dont work we have 10 attempts to response reply message 
+        for (int i = 0; i < 20; i++)
         {
             if(_reply==-1)
-                Thread.Sleep(50);
+                Thread.Sleep(100);
             else
             {
                 if (_reply == 1)
@@ -258,7 +259,7 @@ public class TcpCommunication
         tcpClient.Close();
         Environment.Exit(0);
     }
-    
+
     static async Task SendBye(TcpClient tcpClient)
     {
         byte[] data = Encoding.UTF8.GetBytes("BYE\r\n");
@@ -275,14 +276,17 @@ public class TcpCommunication
         byte[] data = Encoding.UTF8.GetBytes(Err.ToTcpString(err));
         await tcpClient.GetStream().WriteAsync(data, 0, data.Length);
     }
+    
     static async Task ReceiveMessages(TcpClient tcpClient)
     {
         NetworkStream stream = tcpClient.GetStream();
-        byte[] buffer = new byte[2048]; //1435 max
+        byte[] buffer = new byte[2048]; //1435 max expected length 
         while (true)
         {
             // Receive a response from the server
             int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
+            
+            // if server send 0 byte or empty string its mean server close connection 
             if (bytesRead == 0)
             {
                 tcpClient.Close();
@@ -297,13 +301,13 @@ public class TcpCommunication
                 tcpClient.Close();
                 Environment.Exit(0);
             }
-                
+            // if in buffer will be 2 little messages we split it
             string[] messages = receivedMessage.Split("\r\n");
-
             foreach (string message in messages)
             {
                 if(message=="")
                     continue;
+                
                 string firstPart;
                 string secondPart;
                 string[] words;
@@ -346,7 +350,7 @@ public class TcpCommunication
                                     }
                                     else
                                     {
-                                        _reply = -1;
+                                        _reply = 0;
                                         Console.Error.WriteLine($"Failure: {reply.MessageContent}");
                                     }
                                     _mutexReply.ReleaseMutex();
@@ -418,7 +422,7 @@ public class TcpCommunication
                                     }
                                     else
                                     {
-                                        _reply = -1;
+                                        _reply = 0;
                                         Console.Error.WriteLine($"Failure: {reply.MessageContent}");
                                     }
                                     _mutexReply.ReleaseMutex();
