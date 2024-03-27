@@ -1,10 +1,9 @@
-﻿namespace Client;
+﻿namespace Client.Messeges;
 using System.Text;
 using System.Text.RegularExpressions;
 public class Auth : IMessage
 {
     public MessageType MessageType { get; set; } = MessageType.AUTH;
-    //public static ushort MessageId { get; set; }
     public required string Username { get; set; }
     public required string DisplayName { get; set; }
     public required string Secret { get; set; }
@@ -13,7 +12,7 @@ public class Auth : IMessage
     public string ToTcpString( )
     {
         Exception ex = new Exception("Wrong input data");
-        // Проверяем длину идентификатора канала и названия канала
+        // Check the length of the channel identifier and channel name
         if (Username.Length > 20 || DisplayName.Length > 20 || Secret.Length>128)
         {
             throw new ArgumentException("Channel ID and Display Name cannot exceed 20 characters in length.");
@@ -26,7 +25,7 @@ public class Auth : IMessage
             throw ex;
         if (!Regex.IsMatch(Secret, patternId))
             throw ex;
-        // Строим строку в формате "JOIN SP ID SP AS SP DNAME \r\n"
+        // Build a string in the format "JOIN SP ID SP AS SP DNAME \r\n".
         return string.Format("AUTH {0} AS {1} USING {2}\r\n", Username, DisplayName, Secret );
     }
     
@@ -38,10 +37,9 @@ public class Auth : IMessage
         byte[] displayNameBytes = Encoding.UTF8.GetBytes(DisplayName);
         byte[] secretBytes = Encoding.UTF8.GetBytes(Secret);
 
-        // Создаем массив для объединения всех байтов
+        // Create an array to combine all bytes
         byte[] result = new byte[1 + 2 + usernameBytes.Length + 1 + displayNameBytes.Length + 1 + secretBytes.Length + 1];
 
-        // Используем приведение enum к byte для преобразования MessageType в байт
         result[0] = (byte)MessageType;
 
         byte[] messageIdBytes = BitConverter.GetBytes(IMessage.MessageId);

@@ -1,18 +1,17 @@
-﻿namespace Client;
+﻿namespace Client.Messeges;
 using System.Text;
 using System.Text.RegularExpressions;
 public class Join : IMessage
 {
     public MessageType MessageType { get; set; } = MessageType.JOIN;
-    //public static ushort MessageId { get; set; }
     public required string ChannelId  { get; set; }
-    public  string DisplayName    { get; set; } 
+    public  string? DisplayName    { get; set; } 
     
     
     public static string ToTcpString(Join join)
     {
         Exception ex = new Exception("Wrong input data");
-        // Проверяем длину идентификатора канала и названия канала
+        // Check the length of the channel identifier and channel name
         if (join.ChannelId.Length > 20 || join.DisplayName.Length > 20)
         {
             throw new ArgumentException("Channel ID and Display Name cannot exceed 20 characters in length.");
@@ -23,7 +22,7 @@ public class Join : IMessage
         string patternDname = @"^[\x20-\x7E]*$";
         if (!Regex.IsMatch(join.DisplayName, patternDname))
             throw ex;
-        // Строим строку в формате "JOIN SP ID SP AS SP DNAME \r\n"
+        // Build a string in the format "JOIN SP ID SP AS SP DNAME \r\n".
         return string.Format("JOIN {0} AS {1}\r\n", join.ChannelId, join.DisplayName);
     }
     
@@ -59,16 +58,15 @@ public class Join : IMessage
     
     public byte[] ToBytes()
     {
-        // Получаем байты для каждого поля
-        // byte[] messageTypeBytes = BitConverter.GetBytes(MessageType);
+        // Get bytes for each field
         byte[] messageIdBytes = BitConverter.GetBytes(IMessage.MessageId);
         byte[] channelIdBytes = Encoding.UTF8.GetBytes(ChannelId);
         byte[] displayNameBytes = Encoding.UTF8.GetBytes(DisplayName);
 
-        // Создаем массив для объединения всех байтов
+        // Create an array to combine all bytes
         byte[] result = new byte[1 + 2 + channelIdBytes.Length + 1 + displayNameBytes.Length + 1];
 
-        // Копируем байты в результирующий массив
+        // Copy bytes into the resulting array
         int offset = 0;
 
         // MessageType (1 byte)

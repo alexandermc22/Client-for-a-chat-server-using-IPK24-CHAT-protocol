@@ -1,17 +1,16 @@
-﻿namespace Client;
+﻿namespace Client.Messeges;
 using System.Text;
 using System.Text.RegularExpressions;
 public class Msg: IMessage
 {
     public MessageType MessageType { get; set; } = MessageType.MSG;
-    //public static ushort MessageId { get; set; }
-    public string DisplayName { get; set; } 
-    public  string MessageContents { get; set; } 
+    public string? DisplayName { get; set; } 
+    public  string? MessageContents { get; set; } 
     
     public static string ToTcpString(Msg msg)
     {
         Exception ex = new Exception("Wrong input data");
-        // Проверяем длину идентификатора канала и названия канала
+        // Check the length of the channel identifier and channel name
         if (msg.DisplayName.Length > 20 || msg.MessageContents.Length > 1400)
         {
             throw new ArgumentException("MessageContents and Display Name cannot exceed 20 characters in length.");
@@ -22,7 +21,7 @@ public class Msg: IMessage
         string pattern = @"^[\x20-\x7E\s]*$";
         if (!Regex.IsMatch(msg.MessageContents, pattern))
             throw ex;
-        // Строим строку в формате "JOIN SP ID SP AS SP DNAME \r\n"
+        // Build a string in the format "JOIN SP ID SP AS SP DNAME \r\n".
         return string.Format("MSG FROM {0} IS {1}\r\n", msg.DisplayName, msg.MessageContents);
     }
     
@@ -61,10 +60,9 @@ public class Msg: IMessage
         byte[] displayNameBytes = Encoding.UTF8.GetBytes(DisplayName);
         byte[] messageContentsBytes = Encoding.UTF8.GetBytes(MessageContents);
 
-        // Создаем массив для объединения всех байтов
+        // Create an array to combine all bytes
         byte[] result = new byte[1 + 2 + displayNameBytes.Length + 1 + messageContentsBytes.Length + 1];
 
-        // Используем приведение enum к byte для преобразования MessageType в байт
         result[0] = (byte)MessageType;
 
         byte[] messageIdBytes = BitConverter.GetBytes(IMessage.MessageId);
@@ -86,15 +84,14 @@ public class Msg: IMessage
     {
         Msg msg = new Msg();
 
-        // Проверка длины массива, чтобы избежать выхода за границы
+        // Check the length of the array
         if (data.Length >= 3)
         {
             msg.MessageType = (MessageType)data[0];
 
-            // Получение MessageId из массива байтов
+            // Getting MessageId from byte array
             IMessage.MessageId = BitConverter.ToUInt16(data, 1);
 
-            // Используем Encoding.UTF8.GetString для извлечения строк из массива байтов
             int offset = 3;
 
             // DisplayName
@@ -102,7 +99,7 @@ public class Msg: IMessage
             if (displayNameLength >= 0)
             {
                 msg.DisplayName = Encoding.UTF8.GetString(data, offset, displayNameLength);
-                offset += displayNameLength + 1; // Переходим к следующему байту после нулевого терминатора
+                offset += displayNameLength + 1; // Move to the next byte after the null terminator
             }
 
             // MessageContents
@@ -110,7 +107,6 @@ public class Msg: IMessage
             if (messageContentsLength >= 0)
             {
                 msg.MessageContents = Encoding.UTF8.GetString(data, offset, messageContentsLength);
-                //offset += messageContentsLength + 1; // Не нужно, так как это последнее поле
             }
         }
 

@@ -1,15 +1,13 @@
-﻿namespace Client;
-using System.Text;
+﻿namespace Client.Messeges;
 public class Confirm : IMessage
 {
     public MessageType MessageType { get; set; } = MessageType.CONFIRM;
     public ushort MessageId { get; set; }
     public byte[] ToBytes()
         {
-            // Создаем массив для объединения всех байтов
+            // Create an array to combine all bytes
             byte[] result = new byte[1 + 2];
     
-            // Используем приведение enum к byte для преобразования MessageType в байт
             result[0] = (byte)MessageType;
     
             byte[] messageIdBytes = BitConverter.GetBytes(MessageId);
@@ -19,7 +17,7 @@ public class Confirm : IMessage
         }
     public static Confirm FromBytes(byte[] data)
     {
-        if (data == null || data.Length < 3)
+        if (data.Length < 3)
         {
             throw new ArgumentException("Invalid data array", nameof(data));
         }

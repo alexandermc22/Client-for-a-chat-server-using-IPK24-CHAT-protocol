@@ -1,10 +1,9 @@
-﻿namespace Client;
+﻿namespace Client.Messeges;
 using System.Text;
 using System.Text.RegularExpressions;
 public class Err: IMessage
 {
     public MessageType MessageType { get; set; } = MessageType.ERR;
-    //public static ushort MessageId { get; set; }
     public  string DisplayName { get; set; } 
     public  string MessageContents { get; set; } 
     
@@ -12,7 +11,7 @@ public class Err: IMessage
     public static string ToTcpString(Err err)
     {
         Exception ex = new Exception("Wrong input data");
-        // Проверяем длину идентификатора канала и названия канала
+        // Check the length of the channel identifier and channel name
         if (err.DisplayName.Length > 20 || err.MessageContents.Length > 1400)
         {
             throw new ArgumentException("MessageContents and Display Name cannot exceed 20 characters in length.");
@@ -23,7 +22,7 @@ public class Err: IMessage
         string pattern = @"^[\x20-\x7E\s]*$";
         if (!Regex.IsMatch(err.MessageContents, pattern))
             throw ex;
-        // Строим строку в формате "JOIN SP ID SP AS SP DNAME \r\n"
+        // Build a string in the format "JOIN SP ID SP AS SP DNAME \r\n".
         return string.Format("ERR FROM {0} IS {1}\r\n", err.DisplayName, err.MessageContents);
     }
     public static Err FromStringTcp(string[] words)
@@ -61,10 +60,9 @@ public class Err: IMessage
         byte[] displayNameBytes = Encoding.UTF8.GetBytes(DisplayName);
         byte[] messageContentsBytes = Encoding.UTF8.GetBytes(MessageContents);
 
-        // Создаем массив для объединения всех байтов
+        // Create an array to combine all bytes
         byte[] result = new byte[1 + 2 + displayNameBytes.Length + 1 + messageContentsBytes.Length + 1];
 
-        // Используем приведение enum к byte для преобразования MessageType в байт
         result[0] = (byte)MessageType;
 
         byte[] messageIdBytes = BitConverter.GetBytes(IMessage.MessageId);
@@ -84,23 +82,22 @@ public class Err: IMessage
     }
     public static Err FromBytes(byte[] data)
     {
-        if (data == null || data.Length < 3)
+        if (data.Length < 3)
         {
-            // Некорректные данные для разбора
-            return null;
+            // Invalid data for parsing
+            throw new ArgumentException("wrong data from server");
         }
 
         Err errMessage = new Err();
-
-        // Извлекаем MessageType из первого байта
+        // Extract MessageType from the first byte
         errMessage.MessageType = (MessageType)data[0];
 
-        // Извлекаем MessageId из следующих двух байтов
+        // Extract MessageId from the following two bytes
         IMessage.MessageId = BitConverter.ToUInt16(data, 1);
 
-        // Пропускаем байт 3, так как в оригинальном массиве это 0x00 после MessageId
+        // Skip byte 3, because in the original array it is 0x00 after MessageId
 
-        // Извлекаем DisplayName, предполагая, что он завершается байтом 0x00
+        // Retrieve DisplayName, assuming it ends with byte 0x00
         int offset = 4;
         List<byte> displayNameBytes = new List<byte>();
         while (offset < data.Length && data[offset] != 0)
@@ -110,10 +107,10 @@ public class Err: IMessage
         }
         errMessage.DisplayName = Encoding.UTF8.GetString(displayNameBytes.ToArray());
 
-        // Пропускаем байт 0x00 после DisplayName
+        // Skip byte 0x00 after DisplayName
         offset++;
 
-        // Извлекаем MessageContents, предполагая, что он завершается байтом 0x00
+        // Retrieve MessageContents, assuming it ends with byte 0x00
         List<byte> messageContentsBytes = new List<byte>();
         while (offset < data.Length && data[offset] != 0)
         {

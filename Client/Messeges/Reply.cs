@@ -1,14 +1,12 @@
-﻿using System.Data;
-using System.Text.RegularExpressions;
-namespace Client;
+﻿using System.Text.RegularExpressions;
+namespace Client.Messeges;
 using System.Text;
 public class Reply : IMessage
 {
     public MessageType MessageType { get; set; } = MessageType.REPLY;
-    //public  ushort MessageId { get; set; }
     public bool Result { get; set; }
     public ushort RefMessageId { get; set; }
-    public  string MessageContent { get; set; }
+    public  string? MessageContent { get; set; }
 
     public static Reply FromStringTcp(string[] words)
     {
@@ -45,10 +43,9 @@ public class Reply : IMessage
     {
         byte[] messageContentBytes = Encoding.UTF8.GetBytes(MessageContent);
 
-        // Создаем массив для объединения всех байтов
+        // Create an array to combine all bytes
         byte[] result = new byte[1 + 2 + 1 + 2 + messageContentBytes.Length + 1];
 
-        // Используем приведение enum к byte для преобразования MessageType в байт
         result[0] = (byte)MessageType;
 
         byte[] messageIdBytes = BitConverter.GetBytes(IMessage.MessageId);
@@ -75,7 +72,6 @@ public class Reply : IMessage
         }
 
         MessageType messageType = (MessageType)data[0];
-        //ushort messageId = BitConverter.ToUInt16(data, 1);
         bool result = data[3] != 0;
         ushort refMessageId = BitConverter.ToUInt16(data, 4);
 
