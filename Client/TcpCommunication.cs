@@ -51,6 +51,7 @@ public class TcpCommunication
     static async Task SendMessages(TcpClient tcpClient)
     {
         NetworkStream stream = tcpClient.GetStream();
+        
             // processing cansel key at ctrl c cmd c 
         Console.CancelKeyPress += async (sender, e) =>
         {
@@ -331,69 +332,20 @@ public class TcpCommunication
                 _mutexSate.WaitOne();
                 switch (_state)
                 {
+                    // no action if we in state start
                     case State.START:
                         _mutexSate.ReleaseMutex();
                         break;
+                    // state start and auth are merged in this method
+                    // but in open start we dont receive message, bye and default
                     case State.AUTH:
-                        _mutexSate.ReleaseMutex();
-                        switch (words[0])
-                        {
-                            case "REPLY":
-                                try
-                                {
-                                    Reply reply = Reply.FromStringTcp(words);
-                                    _mutexReply.WaitOne();
-                                    if (reply.Result)
-                                    {
-                                        _reply = 1;
-                                        Console.Error.WriteLine($"Success: {reply.MessageContent}");
-                                    }
-                                    else
-                                    {
-                                        _reply = 0;
-                                        Console.Error.WriteLine($"Failure: {reply.MessageContent}");
-                                    }
-                                    _mutexReply.ReleaseMutex();
-                                    break;
-                                }
-                                catch (Exception e)
-                                {
-                                    Console.WriteLine($"ERR: {e}");
-                                    await SendErr(tcpClient);
-                                    await SendBye(tcpClient);
-                                    tcpClient.Close();
-                                    Environment.Exit(0);
-                                    return;
-                                }
-                            case "BYE":
-                                tcpClient.Close();
-                                Environment.Exit(0);
-                                return;
-                            case "ERR":
-                                try
-                                {
-                                    Err err = Err.FromStringTcp(words);
-                                    Console.Error.WriteLine($"ERR FROM {err.DisplayName}: {err.MessageContents}");
-                                }
-                                catch (Exception e)
-                                {
-                                    Console.WriteLine($"ERR: {e}");
-                                    await SendErr(tcpClient);
-                                }
-                                finally
-                                {
-                                    await SendBye(tcpClient);
-                                    tcpClient.Close();
-                                    Environment.Exit(0);
-                                }
-                                return;
-                        }
-                        break;
                     case State.OPEN:
                         _mutexSate.ReleaseMutex();
                         switch (words[0])
                         {
                             case "MSG":
+                                if(_state==State.AUTH)
+                                    break;
                                 try
                                 {
                                     Msg msg = Msg.FromStringTcp(words);
@@ -438,6 +390,8 @@ public class TcpCommunication
                                     return;
                                 }
                             case "BYE":
+                                if(_state==State.AUTH)
+                                    break;
                                 tcpClient.Close();
                                 Environment.Exit(0);
                                 return;
@@ -460,6 +414,8 @@ public class TcpCommunication
                                 }
                                 return;
                             default:
+                                if(_state==State.AUTH)
+                                    break;
                                 Console.WriteLine(words[0]);
                                 Console.WriteLine("ERR: wrong data from server");
                                 await SendErr(tcpClient);

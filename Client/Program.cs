@@ -34,7 +34,13 @@ class Program
                     return;
                 }
                 
-                IPAddress ip = addresses[0]; 
+                //IPAddress ip = addresses[0]; 
+                IPAddress ip = addresses.FirstOrDefault(address => address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork);
+                if (ip==null)
+                {
+                    Console.Error.WriteLine("ERR: Wrong IP");
+                    return;
+                }   
                 
                 if (options.Protocol.Equals("tcp", StringComparison.OrdinalIgnoreCase))
                 {
