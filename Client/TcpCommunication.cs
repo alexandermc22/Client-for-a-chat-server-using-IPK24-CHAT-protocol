@@ -195,6 +195,13 @@ public class TcpCommunication
                                 Console.Error.WriteLine("ERR: Wrong input, repeat");
                                 continue;
                             }
+
+                            if (words[1].Length > 20)
+                            {
+                                Console.Error.WriteLine("ERR: Wrong input, repeat");
+                                continue;
+                            }
+                            
                             string patternDname = @"^[\x20-\x7E]*$";
                             if (Regex.IsMatch(words[1], patternDname))
                                 _displayName = words[1];

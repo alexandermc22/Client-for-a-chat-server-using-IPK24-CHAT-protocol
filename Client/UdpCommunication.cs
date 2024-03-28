@@ -318,7 +318,11 @@ public class UdpCommunication
                                 Console.Error.WriteLine("ERR: Wrong input, repeat");
                                 continue;
                             }
-
+                            if (words[1].Length > 20)
+                            {
+                                Console.Error.WriteLine("ERR: Wrong input, repeat");
+                                continue;
+                            }
                             Join join = new Join()
                             {
                                 ChannelId = words[1],
@@ -351,6 +355,11 @@ public class UdpCommunication
                         //change local name
                         case "/rename":
                             if (words.Length != 2)
+                            {
+                                Console.Error.WriteLine("ERR: Wrong input, repeat");
+                                continue;
+                            }
+                            if (words[1].Length > 20)
                             {
                                 Console.Error.WriteLine("ERR: Wrong input, repeat");
                                 continue;
