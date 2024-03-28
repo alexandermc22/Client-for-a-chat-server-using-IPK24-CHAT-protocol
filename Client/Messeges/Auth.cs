@@ -31,7 +31,7 @@ public class Auth : IMessage
     
     
     
-    public byte[] ToBytes()
+    public byte[] ToBytes(ushort id)
     {
         byte[] usernameBytes = Encoding.UTF8.GetBytes(Username);
         byte[] displayNameBytes = Encoding.UTF8.GetBytes(DisplayName);
@@ -42,7 +42,7 @@ public class Auth : IMessage
 
         result[0] = (byte)MessageType;
 
-        byte[] messageIdBytes = BitConverter.GetBytes(IMessage.MessageId);
+        byte[] messageIdBytes = BitConverter.GetBytes(id);
         Array.Copy(messageIdBytes, 0, result, 1, 2);
 
         int offset = 3;

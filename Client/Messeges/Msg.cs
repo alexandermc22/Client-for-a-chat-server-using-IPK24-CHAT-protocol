@@ -55,7 +55,7 @@ public class Msg: IMessage
     }
     
     
-    public byte[] ToBytes()
+    public byte[] ToBytes(ushort id)
     {
         byte[] displayNameBytes = Encoding.UTF8.GetBytes(DisplayName);
         byte[] messageContentsBytes = Encoding.UTF8.GetBytes(MessageContents);
@@ -65,7 +65,7 @@ public class Msg: IMessage
 
         result[0] = (byte)MessageType;
 
-        byte[] messageIdBytes = BitConverter.GetBytes(IMessage.MessageId);
+        byte[] messageIdBytes = BitConverter.GetBytes(id);
         Array.Copy(messageIdBytes, 0, result, 1, 2);
 
         int offset = 3;
@@ -90,7 +90,7 @@ public class Msg: IMessage
             msg.MessageType = (MessageType)data[0];
 
             // Getting MessageId from byte array
-            IMessage.MessageId = BitConverter.ToUInt16(data, 1);
+            ushort id = BitConverter.ToUInt16(data, 1);
 
             int offset = 3;
 

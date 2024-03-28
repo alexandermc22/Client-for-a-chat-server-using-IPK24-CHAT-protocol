@@ -55,7 +55,7 @@ public class Err: IMessage
     
     
     
-    public byte[] ToBytes()
+    public byte[] ToBytes(ushort id)
     {
         byte[] displayNameBytes = Encoding.UTF8.GetBytes(DisplayName);
         byte[] messageContentsBytes = Encoding.UTF8.GetBytes(MessageContents);
@@ -65,7 +65,7 @@ public class Err: IMessage
 
         result[0] = (byte)MessageType;
 
-        byte[] messageIdBytes = BitConverter.GetBytes(IMessage.MessageId);
+        byte[] messageIdBytes = BitConverter.GetBytes(id);
         Array.Copy(messageIdBytes, 0, result, 1, 2);
 
         int offset = 3;
@@ -93,7 +93,7 @@ public class Err: IMessage
         errMessage.MessageType = (MessageType)data[0];
 
         // Extract MessageId from the following two bytes
-        IMessage.MessageId = BitConverter.ToUInt16(data, 1);
+        ushort id = BitConverter.ToUInt16(data, 1);
 
         // Skip byte 3, because in the original array it is 0x00 after MessageId
 

@@ -56,10 +56,10 @@ public class Join : IMessage
         return join;
     }
     
-    public byte[] ToBytes()
+    public byte[] ToBytes(ushort id)
     {
         // Get bytes for each field
-        byte[] messageIdBytes = BitConverter.GetBytes(IMessage.MessageId);
+        byte[] messageIdBytes = BitConverter.GetBytes(id);
         byte[] channelIdBytes = Encoding.UTF8.GetBytes(ChannelId);
         byte[] displayNameBytes = Encoding.UTF8.GetBytes(DisplayName);
 

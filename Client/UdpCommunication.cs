@@ -26,10 +26,9 @@ public class UdpCommunication
     private static Mutex _mutexConfirm = new Mutex();
     private static Mutex _mutexReply = new Mutex();
     private static string? _displayName;
-
+    public static ushort id = 0;
     internal static async Task UdpProcessSocketCommunication(Options options, IPAddress ip)
     {
-        IMessage.MessageId = 0;
         UdpClient udpClientSend = new UdpClient();
         // server point
         IPEndPoint serverEP = new IPEndPoint(ip, options.Port);
@@ -156,7 +155,7 @@ public class UdpCommunication
                                 _mutexSate.WaitOne();
                                 _state = State.ERROR;
                                 _mutexSate.ReleaseMutex();
-                                Task sendError = SendMessageAsync(sendErr.ToBytes(), udpClient, serverEP, options);
+                                Task sendError = SendMessageAsync(sendErr.ToBytes(id), udpClient, serverEP, options);
                                 
                                 // recursive call because we need to receive confirm
                                 _ = ReceiveMessage(udpClient, serverEP, options);
@@ -277,7 +276,7 @@ public class UdpCommunication
                             _mutexSate.ReleaseMutex();
                             
                             // send auth and wait reply and confirm
-                            result = await SendMessageAsync(auth.ToBytes(), udpClient, localEndPoint, options);
+                            result = await SendMessageAsync(auth.ToBytes(id), udpClient, localEndPoint, options);
                             if (result == 1) // if we receive confirm
                             {
                                 int replyBool =  WaitReply(options);
@@ -326,7 +325,7 @@ public class UdpCommunication
                                 DisplayName = _displayName
                             };
                             // send join
-                            result = await SendMessageAsync(join.ToBytes(), udpClient, localEndPoint, options);
+                            result = await SendMessageAsync(join.ToBytes(id), udpClient, localEndPoint, options);
                             if (result == 1) // if we receive confirm
                             {
                                 int replyBool =  WaitReply(options);
@@ -375,7 +374,7 @@ public class UdpCommunication
                                 DisplayName = _displayName
                             };
 
-                            result = await SendMessageAsync(msg.ToBytes(), udpClient, localEndPoint, options);
+                            result = await SendMessageAsync(msg.ToBytes(id), udpClient, localEndPoint, options);
                             if (result == 1) // if we receive confirm
                                 continue;
                             else
@@ -413,7 +412,7 @@ public class UdpCommunication
                 if (confirm.MessageId == BitConverter.ToUInt16(message, 1))
                 {
                     _mutexConfirm.ReleaseMutex();
-                    IMessage.MessageId++; // increment id
+                    id++; // increment id
                     return 1;
                 }
             }
@@ -421,7 +420,7 @@ public class UdpCommunication
             _mutexConfirm.ReleaseMutex();
         }
         // if no response
-        IMessage.MessageId++;
+        id++;
         Console.Error.WriteLine("ERR: No confirm");
         return 0;
     }
@@ -431,7 +430,7 @@ public class UdpCommunication
     {
         Confirm confirm = new Confirm();
         confirm.MessageId = BitConverter.ToUInt16(message, 1);
-        byte[] confirmByte = confirm.ToBytes();
+        byte[] confirmByte = confirm.ToBytes(id);
         await udpClient.SendAsync(confirmByte, confirmByte.Length, localEndPoint);
     }
 
@@ -442,7 +441,7 @@ public class UdpCommunication
         _state = State.END;
         _mutexSate.ReleaseMutex();
         Bye bye = new Bye();
-        await SendMessageAsync(bye.ToBytes(), udpClient, localEndPoint, options);
+        await SendMessageAsync(bye.ToBytes(id), udpClient, localEndPoint, options);
     }
 
     // method to wait reply from server
@@ -456,7 +455,7 @@ public class UdpCommunication
             {
                 Reply reply;
                 reply = _replyList.Dequeue(); 
-                if (reply.RefMessageId == (IMessage.MessageId - 1))
+                if (reply.RefMessageId == (id - 1))
                 {
                     _mutexReply.ReleaseMutex();
                     if (reply.Result)

@@ -75,7 +75,6 @@ public class TcpCommunication
             string? userInput = Console.ReadLine();
             if (userInput == null)
             {
-                
                 _mutexSate.WaitOne();
                 if (_state != State.START)
                 {

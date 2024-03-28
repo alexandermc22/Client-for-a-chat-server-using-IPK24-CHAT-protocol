@@ -39,7 +39,7 @@ public class Reply : IMessage
     
     
     
-    public byte[] ToBytes()
+    public byte[] ToBytes(ushort id)
     {
         byte[] messageContentBytes = Encoding.UTF8.GetBytes(MessageContent);
 
@@ -48,7 +48,7 @@ public class Reply : IMessage
 
         result[0] = (byte)MessageType;
 
-        byte[] messageIdBytes = BitConverter.GetBytes(IMessage.MessageId);
+        byte[] messageIdBytes = BitConverter.GetBytes(id);
         Array.Copy(messageIdBytes, 0, result, 1, 2);
 
         result[3] = (byte)(Result ? 1 : 0);

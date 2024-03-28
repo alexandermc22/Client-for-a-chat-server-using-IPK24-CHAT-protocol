@@ -3,7 +3,7 @@ public class Confirm : IMessage
 {
     public MessageType MessageType { get; set; } = MessageType.CONFIRM;
     public ushort MessageId { get; set; }
-    public byte[] ToBytes()
+    public byte[] ToBytes(ushort id)
         {
             // Create an array to combine all bytes
             byte[] result = new byte[1 + 2];
