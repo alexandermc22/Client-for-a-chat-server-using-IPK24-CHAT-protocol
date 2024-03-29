@@ -361,7 +361,7 @@ public class UdpCommunication
                             }
                             if (words[1].Length > 20)
                             {
-                                Console.Error.WriteLine("ERR: Wrong input, repeat");
+                                Console.Error.WriteLine("ERR: Name must not contain more then 20 symbols");
                                 continue;
                             }
 
@@ -375,7 +375,16 @@ public class UdpCommunication
                                 Console.Error.WriteLine("ERR: Wrong input, repeat");
                                 continue;
                             }
-
+                            if (userInput.Length > 1400)
+                            {
+                                Console.Error.WriteLine("ERR: Message must not contain more then 1400 symbols");
+                                continue;
+                            }
+                            if (_displayName.Length > 20)
+                            {
+                                Console.Error.WriteLine("ERR: Name must not contain more then 20 symbols");
+                                continue;
+                            }
                             // else send message
                             Msg msg = new Msg()
                             {

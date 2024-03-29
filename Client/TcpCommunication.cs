@@ -198,7 +198,7 @@ public class TcpCommunication
 
                             if (words[1].Length > 20)
                             {
-                                Console.Error.WriteLine("ERR: Wrong input, repeat");
+                                Console.Error.WriteLine("ERR: Name must not contain more then 20 symbols");
                                 continue;
                             }
                             
