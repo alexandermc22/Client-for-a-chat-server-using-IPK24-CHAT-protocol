@@ -265,6 +265,11 @@ public class UdpCommunication
                             }
 
                             _displayName = words[3];
+                            if (_displayName.Length > 20)
+                            {
+                                Console.Error.WriteLine("ERR: Name must not contain more then 20 symbols");
+                                continue;
+                            }
                             Auth auth = new Auth()
                             {
                                 Username = words[1],
@@ -378,11 +383,6 @@ public class UdpCommunication
                             if (userInput.Length > 1400)
                             {
                                 Console.Error.WriteLine("ERR: Message must not contain more then 1400 symbols");
-                                continue;
-                            }
-                            if (_displayName.Length > 20)
-                            {
-                                Console.Error.WriteLine("ERR: Name must not contain more then 20 symbols");
                                 continue;
                             }
                             // else send message
